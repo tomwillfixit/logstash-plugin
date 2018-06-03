@@ -25,7 +25,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
     private static final String TYPE = "jenkins_plugin";
     private LogzioSender logzioSender = null;
 
-//    private List<String> buildDataExcludeList = new ArrayList<>();
     private String key;
     private String host;
 
@@ -36,11 +35,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
     // Factored for unit testing
     LogzioDao(LogzioSender factory, String host, String key) throws LogzioParameterErrorException {
-        if (host == null)
-        {
-            throw new IllegalArgumentException("host field must not be empty");
-        }
-
         this.host = host;
         this.key = key;
 
