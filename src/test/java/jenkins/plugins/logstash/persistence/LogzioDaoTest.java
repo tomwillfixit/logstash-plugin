@@ -3,24 +3,25 @@ package jenkins.plugins.logstash.persistence;
 import io.logz.sender.LogzioSender;
 import io.logz.sender.com.google.gson.JsonObject;
 import io.logz.sender.exceptions.LogzioParameterErrorException;
+
 import jenkins.plugins.logstash.LogstashConfiguration;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+
 import net.sf.json.JSONObject;
 import net.sf.json.test.JSONAssert;
-
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
+
 import org.mockito.Mock;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;

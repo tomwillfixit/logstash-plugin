@@ -1,18 +1,16 @@
 package jenkins.plugins.logstash.configuration;
 
-
-import jenkins.plugins.logstash.persistence.LogzioDao;
-import org.apache.commons.lang.StringUtils;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.DataBoundSetter;
-import org.kohsuke.stapler.QueryParameter;
-
 import hudson.Extension;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 
-import jenkins.plugins.logstash.Messages;
 import jenkins.plugins.logstash.persistence.LogzioDao;
+import jenkins.plugins.logstash.Messages;
+
+import org.apache.commons.lang.StringUtils;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
 
 public class Logzio extends LogstashIndexer<LogzioDao>
 {

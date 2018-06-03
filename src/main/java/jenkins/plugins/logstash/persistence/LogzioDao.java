@@ -1,19 +1,21 @@
 package jenkins.plugins.logstash.persistence;
 
 import com.github.wnameless.json.flattener.JsonFlattener;
+import hudson.model.Executor;
+
 import io.logz.sender.LogzioSender;
 import io.logz.sender.SenderStatusReporter;
 import io.logz.sender.com.google.gson.JsonObject;
 import io.logz.sender.exceptions.LogzioParameterErrorException;
 
 import jenkins.plugins.logstash.LogstashConfiguration;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import java.io.*;
 
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.Executors;
 
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 /**
  * Logz.io Data Access Object.
  *
@@ -42,8 +44,17 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         this.host = host;
         this.key = key;
 
+        // create file for sender queue
+        File fp;
+        try{
+            hudson.FilePath workspace = Objects.requireNonNull(Executor.currentExecutor()).getCurrentWorkspace();
+            fp = new File(workspace.toString() + "/tmp/logzio_jenkins");
+        }catch (NullPointerException e){
+            fp = new File("/tmp/logzio_jenkins");
+        }
+
         this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, 2,
-                98, new File("./logzio_jenkins"), host, 10 * 1000,
+                98, fp, host, 10 * 1000,
                 10 * 1000,false, new LogzioDaoLogger(),
                 Executors.newScheduledThreadPool(2),30) : factory;
 
