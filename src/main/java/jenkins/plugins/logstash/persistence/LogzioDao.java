@@ -53,7 +53,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
             hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
             fp = new File(workspace + "/logzio_jenkins");
         }else{
-            fp = new File("/logzio_jenkins");
+            fp = new File("./logzio_jenkins");
         }
         try{
             this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, DRAIN_TIMEOUT,
