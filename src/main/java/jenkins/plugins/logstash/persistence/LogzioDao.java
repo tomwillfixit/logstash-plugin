@@ -81,8 +81,8 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         JsonObject logLine = new JsonObject();
         logLine.addProperty("message", logMsg);
 
-        // each log will have a different timestamp - better understanding of the logs order.
-        logLine.addProperty("@timestamp", LogstashConfiguration.getInstance().
+        // Each log will have a different timestamp - better understanding of the logs order.
+        logLine.addProperty("parsing_timestamp", LogstashConfiguration.getInstance().
                 getDateFormatter().format(Calendar.getInstance().getTime()));
 
         for (Object key : jsonData.keySet()){
