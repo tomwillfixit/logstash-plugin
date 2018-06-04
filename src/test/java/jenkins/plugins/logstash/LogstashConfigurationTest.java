@@ -61,7 +61,7 @@ public class LogstashConfigurationTest extends LogstashConfigurationTestBase
   }
 
   @Test
-  public void LogzioIsProperlyConfigured()
+  public void logzioIsProperlyConfigured()
   {
     LogstashConfigurationTestBase.configFile = new File("src/test/resources/logzio.xml");
     LogstashConfiguration configuration = new LogstashConfigurationForTest();

@@ -16,60 +16,81 @@ import java.util.concurrent.Executors;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+
 /**
  * Logz.io Data Access Object.
  *
  * @author Ido Halevi
  */
+
 public class LogzioDao extends AbstractLogstashIndexerDao {
+    private static final int CONNECT_TIMEOUT = 10*1000;
+    private static final int CORE_POOL_SIZE = 2;
+    private static final int DRAIN_TIMEOUT = 2;
+    private static final int FS_PERCENT_THRESHOLD = 98;
+    private static final int GC_PERSISTED_QUEUE_FILE_INTERVAL_SECOND = 30;
+    private static final int SOCKET_TIMEOUT = 10*1000;
     private static final String TYPE = "jenkins_plugin";
-    private LogzioSender logzioSender = null;
+    private final LogzioSender logzioSender;
 
     private String key;
     private String host;
 
     //primary constructor used by indexer factory
-    public LogzioDao(String host, String key) throws LogzioParameterErrorException{
+    public LogzioDao(String host, String key) throws IllegalArgumentException{
         this(null, host, key);
     }
 
     // Factored for unit testing
-    LogzioDao(LogzioSender factory, String host, String key) throws LogzioParameterErrorException {
+    LogzioDao(LogzioSender factory, String host, String key) throws IllegalArgumentException {
         this.host = host;
         this.key = key;
 
         // create file for sender queue
         File fp;
-        try{
-            hudson.FilePath workspace = Objects.requireNonNull(Executor.currentExecutor()).getCurrentWorkspace();
-            fp = new File(workspace.toString() + "/tmp/logzio_jenkins");
-        }catch (NullPointerException e){
-            fp = new File("/tmp/logzio_jenkins");
+        // for tests
+        if (Executor.currentExecutor() != null){
+            hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
+            fp = new File(workspace + "/logzio_jenkins");
+        }else{
+            fp = new File("/logzio_jenkins");
         }
-
-        this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, 2,
-                98, fp, host, 10 * 1000,
-                10 * 1000,false, new LogzioDaoLogger(),
-                Executors.newScheduledThreadPool(2),30) : factory;
-
-        this.logzioSender.start();
+        try{
+            this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, DRAIN_TIMEOUT,
+                    FS_PERCENT_THRESHOLD, fp, host, SOCKET_TIMEOUT,
+                    CONNECT_TIMEOUT,false, new LogzioDaoLogger(),
+                    Executors.newScheduledThreadPool(CORE_POOL_SIZE),GC_PERSISTED_QUEUE_FILE_INTERVAL_SECOND) : factory;
+            this.logzioSender.start();
+        }catch (LogzioParameterErrorException e){
+            throw new IllegalArgumentException(e.getMessage());
+        }
     }
 
     @Override
-    public void push(String data) throws IOException {
+    public void push(String data) {
         JSONObject jsonData = JSONObject.fromObject(data);
-        JSONArray jsonArray = jsonData.getJSONArray("message");
-        for (Object msg : jsonArray) {
-            JsonObject log = new JsonObject();
-            log.addProperty("message", msg.toString());
-            for (Object key : jsonData.keySet()){
-                String keyStr = (String)key;
-                if(!keyStr.equals("message")){
-                    log.addProperty(keyStr, jsonData.getString(keyStr));
-                }
-            }
-            this.logzioSender.send(log);
+        JSONArray logMessages = jsonData.getJSONArray("message");
+        for (Object logMsg : logMessages) {
+            JsonObject logLine = createLogLine(jsonData, logMsg.toString());
+            this.logzioSender.send(logLine);
         }
+    }
+
+    protected JsonObject createLogLine(JSONObject jsonData, String logMsg) {
+        JsonObject logLine = new JsonObject();
+        logLine.addProperty("message", logMsg);
+
+        // each log will have a different timestamp - better understanding of the logs order.
+        logLine.addProperty("@timestamp", LogstashConfiguration.getInstance().
+                getDateFormatter().format(Calendar.getInstance().getTime()));
+
+        for (Object key : jsonData.keySet()){
+            String keyStr = (String)key;
+            if(!keyStr.equals("message")){
+                logLine.addProperty(keyStr, jsonData.get(keyStr).toString());
+            }
+        }
+        return logLine;
     }
 
     @Override
@@ -79,7 +100,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         payload.put("source", "jenkins");
         payload.put("source_host", jenkinsUrl);
         payload.put("@buildTimestamp", buildData.getTimestamp());
-        payload.put("@timestamp", LogstashConfiguration.getInstance().getDateFormatter().format(Calendar.getInstance().getTime()));
         payload.put("@version", 1);
         // flatten build data
         Map<String, Object> flattenJson = JsonFlattener.flattenAsMap(buildData.toString());

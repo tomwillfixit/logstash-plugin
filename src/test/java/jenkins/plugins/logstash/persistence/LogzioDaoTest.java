@@ -2,13 +2,10 @@ package jenkins.plugins.logstash.persistence;
 
 import io.logz.sender.LogzioSender;
 import io.logz.sender.com.google.gson.JsonObject;
-import io.logz.sender.exceptions.LogzioParameterErrorException;
 
 import jenkins.plugins.logstash.LogstashConfiguration;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 
 import net.sf.json.JSONObject;
 import net.sf.json.test.JSONAssert;
@@ -17,6 +14,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
@@ -24,7 +23,8 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertTrue;
+
 import static org.mockito.Mockito.*;
 import static org.powermock.api.mockito.PowerMockito.when;
 
@@ -43,17 +43,18 @@ public class LogzioDaoTest {
     private static final String TWO_LINE_STRING_NO_DATA = "{\"@buildTimestamp\":\"2000-01-01\",\"message\":[\"LINE 1\", \"LINE 2\"],\"source\":\"jenkins\",\"source_host\":\"http://localhost:8080/jenkins\",\"@version\":1}";
     private LogzioDao dao;
 
+    @Captor private ArgumentCaptor<JsonObject> sendArgument = ArgumentCaptor.forClass(JsonObject.class);
+
     @Mock private LogzioSender logzioSender;
     @Mock private BuildData mockBuildData;
     @Mock private LogstashConfiguration logstashConfiguration;
 
-    private LogzioDao createDao(String host, String key) throws LogzioParameterErrorException {
+    private LogzioDao createDao(String host, String key) throws IllegalArgumentException {
         return new LogzioDao(logzioSender, host, key);
     }
 
     @Before
-    public void before() throws Exception {
-        System.out.print("before\n"); //todo delete
+    public void before() throws IllegalArgumentException {
         PowerMockito.mockStatic(LogstashConfiguration.class);
         when(LogstashConfiguration.getInstance()).thenReturn(logstashConfiguration);
         when(logstashConfiguration.getDateFormatter()).thenCallRealMethod();
@@ -65,7 +66,7 @@ public class LogzioDaoTest {
     }
 
     @Test
-    public void constructorSuccess1() throws Exception {
+    public void constructorSuccess1() throws IllegalArgumentException {
         // Unit under test
         dao = createDao("https://localhost:8201/", "123");
 
@@ -89,7 +90,7 @@ public class LogzioDaoTest {
     public void buildPayloadSuccessOneLine(){
         when(mockBuildData.toString()).thenReturn("{}");
         // Unit under test
-        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", Arrays.asList("LINE 1"));
+        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", Collections.singletonList("LINE 1"));
         result.remove("@timestamp");
 
         // Verify results
@@ -122,7 +123,7 @@ public class LogzioDaoTest {
     public void buildPayloadWithDataSuccessOneLine(){
         when(mockBuildData.toString()).thenReturn(data);
         // Unit under test
-        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", Arrays.asList("LINE 1"));
+        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", Collections.singletonList("LINE 1"));
         result.remove("@timestamp");
 
         // Verify results
@@ -142,40 +143,48 @@ public class LogzioDaoTest {
 
     @Test
     public void pushNoMessage(){
-        String jsonString = "{'message': []}";
-
         // Unit under test
-        try {
-            dao.push(jsonString);
-            verify(logzioSender, times(0)).send(any(JsonObject.class));
-        }catch (IOException e ){
-            fail("Failed to push with no message");
-        }
+        dao.push(EMPTY_STRING_WITH_DATA);
+        verify(logzioSender, never()).send(sendArgument.capture());
     }
 
     @Test
     public void pushOneMessage(){
-        String jsonString = "{'message': ['bar1']}";
-
         // Unit under test
-        try {
-            dao.push(jsonString);
-            verify(logzioSender, times(1)).send(any(JsonObject.class));
-        }catch (IOException e ){
-            fail("Failed to push with a message");
-        }
+        dao.push(ONE_LINE_STRING_WITH_DATA);
+        // Verify results
+        verify(logzioSender, times(1)).send(sendArgument.capture());
+
+        JsonObject sentJson = sendArgument.getValue();
+        JsonObject expectedJson = dao.
+                createLogLine(JSONObject.fromObject(ONE_LINE_STRING_WITH_DATA), sentJson.get("message").getAsString());
+
+        sentJson.remove("@timestamp");
+        expectedJson.remove("@timestamp");
+
+        assertTrue(expectedJson.equals(sentJson));
     }
 
     @Test
     public void pushMultiMessages(){
-        String jsonString = "{'message': ['bar1', 'bar2']}";
-
         // Unit under test
-        try {
-            dao.push(jsonString);
-            verify(logzioSender, times(2)).send(any(JsonObject.class));
-        }catch (IOException e ){
-            fail("Failed to push with multi messages");
-        }
+        dao.push(TWO_LINE_STRING_WITH_DATA);
+        // Verify results
+        verify(logzioSender, times(2)).send(sendArgument.capture());
+
+        JsonObject sentJson1 = sendArgument.getAllValues().get(0);
+        JsonObject expectedJson1 = dao.
+                createLogLine(JSONObject.fromObject(TWO_LINE_STRING_WITH_DATA),sentJson1.get("message").getAsString());
+        JsonObject sentJson2 = sendArgument.getAllValues().get(1);
+        JsonObject expectedJson2 = dao.
+                createLogLine(JSONObject.fromObject(TWO_LINE_STRING_WITH_DATA),sentJson2.get("message").getAsString());
+
+        sentJson1.remove("@timestamp");
+        sentJson2.remove("@timestamp");
+        expectedJson1.remove("@timestamp");
+        expectedJson2.remove("@timestamp");
+
+        assertTrue(expectedJson1.equals(sentJson1));
+        assertTrue(expectedJson2.equals(sentJson2));
     }
 }

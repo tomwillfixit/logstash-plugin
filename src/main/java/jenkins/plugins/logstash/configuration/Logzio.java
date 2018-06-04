@@ -12,6 +12,8 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 
+import javax.annotation.Nonnull;
+
 public class Logzio extends LogstashIndexer<LogzioDao>
 {
     private Secret key;
@@ -56,14 +58,9 @@ public class Logzio extends LogstashIndexer<LogzioDao>
         }
         if (host == null)
         {
-            if (other.host != null)
-                return false;
+            return other.host == null;
         }
-        else if (!host.equals(other.host))
-        {
-            return false;
-        }
-        return true;
+        else return host.equals(other.host);
     }
 
     @Override
@@ -77,20 +74,15 @@ public class Logzio extends LogstashIndexer<LogzioDao>
     }
 
     @Override
-    public LogzioDao createIndexerInstance() {
-        try{
-            LogzioDao logzioDao = new LogzioDao(host, Secret.toString(key));
-            return logzioDao;
-        }catch (io.logz.sender.exceptions.LogzioParameterErrorException e){
-            return null;
-        }
-    }
+    public LogzioDao createIndexerInstance() { return new LogzioDao(host, Secret.toString(key)); }
 
     @Extension
     public static class LogzioDescriptor extends LogstashIndexerDescriptor
     {
         private static String EU_HOST = "https://listener-eu.logz.io:8071";
         private static String NONEU_HOST = "https://listener.logz.io:8071";
+
+        @Nonnull
         @Override
         public String getDisplayName()
         {

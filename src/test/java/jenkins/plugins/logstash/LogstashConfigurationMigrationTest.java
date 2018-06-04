@@ -140,7 +140,7 @@ public class LogstashConfigurationMigrationTest extends LogstashConfigurationTes
   }
 
   @Test
-  public void LogzioMigration()
+  public void logzioMigration()
   {
     when(descriptor.getType()).thenReturn(IndexerType.LOGZIO);
     when(descriptor.getHost()).thenReturn("https://listener.logz.io:8071");

@@ -9,7 +9,7 @@
     <java.level>8</java.level>
     <jenkins.version>2.7.4</jenkins.version>
   </properties>
-  
+
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
@@ -119,12 +119,6 @@
       <groupId>com.github.wnameless</groupId>
       <artifactId>json-flattener</artifactId>
       <version>0.5.0</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
-      <version>2.4.4</version>
     </dependency>
 
     <dependency>
