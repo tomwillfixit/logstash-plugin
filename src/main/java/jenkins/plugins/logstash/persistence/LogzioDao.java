@@ -1,6 +1,7 @@
 package jenkins.plugins.logstash.persistence;
 
 import com.github.wnameless.json.flattener.JsonFlattener;
+import com.google.common.io.Files;
 import hudson.model.Executor;
 
 import io.logz.sender.LogzioSender;
@@ -53,7 +54,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
             hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
             fp = new File(workspace + "/logzio_jenkins");
         }else{
-            fp = new File("./logzio_jenkins");
+            fp = Files.createTempDir();
         }
         try{
             this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, DRAIN_TIMEOUT,
