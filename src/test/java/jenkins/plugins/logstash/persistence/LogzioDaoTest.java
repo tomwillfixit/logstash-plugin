@@ -66,7 +66,7 @@ public class LogzioDaoTest {
     }
 
     @Test
-    public void constructorSuccess1() throws IllegalArgumentException {
+    public void constructorSuccess() throws IllegalArgumentException {
         // Unit under test
         dao = createDao("https://localhost:8201/", "123");
 
@@ -79,7 +79,7 @@ public class LogzioDaoTest {
     public void buildPayloadSuccessEmpty(){
         when(mockBuildData.toString()).thenReturn("{}");
         // Unit under test
-        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", new ArrayList<String>());
+        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", new ArrayList<>());
         result.remove("@timestamp");
 
         // Verify results
@@ -112,7 +112,7 @@ public class LogzioDaoTest {
     public void buildPayloadWithDataSuccessEmpty(){
         when(mockBuildData.toString()).thenReturn(data);
         // Unit under test
-        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", new ArrayList<String>());
+        JSONObject result = dao.buildPayload(mockBuildData, "http://localhost:8080/jenkins", new ArrayList<>());
         result.remove("@timestamp");
 
         // Verify results

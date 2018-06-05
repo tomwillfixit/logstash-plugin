@@ -9,12 +9,11 @@ import io.logz.sender.SenderStatusReporter;
 import io.logz.sender.com.google.gson.JsonObject;
 import io.logz.sender.exceptions.LogzioParameterErrorException;
 
-import jenkins.plugins.logstash.LogstashConfiguration;
-
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.Executors;
 
+import jenkins.plugins.logstash.LogstashConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
@@ -38,12 +37,12 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
     private String host;
 
     //primary constructor used by indexer factory
-    public LogzioDao(String host, String key) throws IllegalArgumentException{
+    public LogzioDao(String host, String key){
         this(null, host, key);
     }
 
     // Factored for unit testing
-    LogzioDao(LogzioSender factory, String host, String key) throws IllegalArgumentException {
+    LogzioDao(LogzioSender factory, String host, String key){
         this.host = host;
         this.key = key;
 
@@ -80,17 +79,10 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
     protected JsonObject createLogLine(JSONObject jsonData, String logMsg) {
         JsonObject logLine = new JsonObject();
         logLine.addProperty("message", logMsg);
-
-        // Each log will have a different timestamp - better understanding of the logs order.
-        logLine.addProperty("parsing_timestamp", LogstashConfiguration.getInstance().
-                getDateFormatter().format(Calendar.getInstance().getTime()));
-
-        for (Object key : jsonData.keySet()){
-            String keyStr = (String)key;
-            if(!keyStr.equals("message")){
-                logLine.addProperty(keyStr, jsonData.get(keyStr).toString());
-            }
-        }
+        logLine.addProperty("@timestamp", LogstashConfiguration.getInstance().getDateFormatter().format(Calendar.getInstance().getTime()));
+        jsonData.keySet().stream()
+        .filter(key -> !(key.equals("message")))
+        .forEach(key -> logLine.addProperty(key.toString(), jsonData.getString(key.toString())));
         return logLine;
     }
 
