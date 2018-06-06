@@ -111,7 +111,7 @@ public class Logzio extends LogstashIndexer<LogzioDao>
                 return FormValidation.error(Messages.ValueIsRequired());
             }
             else if (!(value.equals(EU_HOST) || value.equals(NONEU_HOST))){
-                return FormValidation.error("Please verify your logz.io host is one of the two possible urls - "
+                return FormValidation.error("Please verify your logz.io host is one of the two possible hosts - "
                 + EU_HOST + " or " + NONEU_HOST);
             }
             return FormValidation.ok();
