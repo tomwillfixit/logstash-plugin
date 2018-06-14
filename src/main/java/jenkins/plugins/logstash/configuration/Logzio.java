@@ -108,7 +108,7 @@ public class Logzio extends LogstashIndexer<LogzioDao>
         {
             if (StringUtils.isBlank(value))
             {
-                return FormValidation.error(Messages.ValueIsRequired());
+                return FormValidation.error(Messages.PleaseProvideHost());
             }
             else if (!(value.equals(EU_HOST) || value.equals(NONEU_HOST))){
                 return FormValidation.error("Please verify your logz.io host is one of the two possible hosts - "

@@ -1,8 +1,4 @@
 package jenkins.plugins.logstash.persistence;
-
-import io.logz.sender.LogzioSender;
-import io.logz.sender.com.google.gson.JsonObject;
-
 import jenkins.plugins.logstash.LogstashConfiguration;
 
 import java.util.*;
@@ -43,9 +39,9 @@ public class LogzioDaoTest {
     private static final String TWO_LINE_STRING_NO_DATA = "{\"@buildTimestamp\":\"2000-01-01\",\"message\":[\"LINE 1\", \"LINE 2\"],\"source\":\"jenkins\",\"source_host\":\"http://localhost:8080/jenkins\",\"@version\":1}";
     private LogzioDao dao;
 
-    @Captor private ArgumentCaptor<JsonObject> sendArgument = ArgumentCaptor.forClass(JsonObject.class);
+    @Captor private ArgumentCaptor<JSONObject> sendArgument = ArgumentCaptor.forClass(JSONObject.class);
 
-    @Mock private LogzioSender logzioSender;
+    @Mock private LogzioDao.LogzioSender logzioSender;
     @Mock private BuildData mockBuildData;
     @Mock private LogstashConfiguration logstashConfiguration;
 
@@ -60,8 +56,8 @@ public class LogzioDaoTest {
         when(logstashConfiguration.getDateFormatter()).thenCallRealMethod();
         when(mockBuildData.getTimestamp()).thenReturn("2000-01-01");
 
-        doNothing().when(logzioSender).start();
-        doNothing().when(logzioSender).send(any(JsonObject.class));
+        doNothing().when(logzioSender).add(any(JSONObject.class));
+        doNothing().when(logzioSender).flush();
         dao = createDao("http://localhost:8200/", "123456789");
     }
 
@@ -145,7 +141,7 @@ public class LogzioDaoTest {
     public void pushNoMessage(){
         // Unit under test
         dao.push(EMPTY_STRING_WITH_DATA);
-        verify(logzioSender, never()).send(sendArgument.capture());
+        verify(logzioSender, never()).add(sendArgument.capture());
     }
 
     @Test
@@ -153,11 +149,11 @@ public class LogzioDaoTest {
         // Unit under test
         dao.push(ONE_LINE_STRING_WITH_DATA);
         // Verify results
-        verify(logzioSender, times(1)).send(sendArgument.capture());
+        verify(logzioSender, times(1)).add(sendArgument.capture());
 
-        JsonObject sentJson = sendArgument.getValue();
-        JsonObject expectedJson = dao.
-                createLogLine(JSONObject.fromObject(ONE_LINE_STRING_WITH_DATA), sentJson.get("message").getAsString());
+        JSONObject sentJson = sendArgument.getValue();
+        JSONObject expectedJson = dao.
+                createLogLine(JSONObject.fromObject(ONE_LINE_STRING_WITH_DATA), sentJson.getString("message"));
 
         sentJson.remove("@timestamp");
         expectedJson.remove("@timestamp");
@@ -170,14 +166,14 @@ public class LogzioDaoTest {
         // Unit under test
         dao.push(TWO_LINE_STRING_WITH_DATA);
         // Verify results
-        verify(logzioSender, times(2)).send(sendArgument.capture());
+        verify(logzioSender, times(2)).add(sendArgument.capture());
 
-        JsonObject sentJson1 = sendArgument.getAllValues().get(0);
-        JsonObject expectedJson1 = dao.
-                createLogLine(JSONObject.fromObject(TWO_LINE_STRING_WITH_DATA),sentJson1.get("message").getAsString());
-        JsonObject sentJson2 = sendArgument.getAllValues().get(1);
-        JsonObject expectedJson2 = dao.
-                createLogLine(JSONObject.fromObject(TWO_LINE_STRING_WITH_DATA),sentJson2.get("message").getAsString());
+        JSONObject sentJson1 = sendArgument.getAllValues().get(0);
+        JSONObject expectedJson1 = dao.
+                createLogLine(JSONObject.fromObject(TWO_LINE_STRING_WITH_DATA),sentJson1.getString("message"));
+        JSONObject sentJson2 = sendArgument.getAllValues().get(1);
+        JSONObject expectedJson2 = dao.
+                createLogLine(JSONObject.fromObject(TWO_LINE_STRING_WITH_DATA),sentJson2.getString("message"));
 
         sentJson1.remove("@timestamp");
         sentJson2.remove("@timestamp");
