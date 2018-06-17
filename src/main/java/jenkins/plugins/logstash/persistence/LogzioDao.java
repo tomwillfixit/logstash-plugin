@@ -8,7 +8,9 @@ import java.net.URL;
 import java.util.*;
 
 import jenkins.plugins.logstash.LogstashConfiguration;
-import java.util.concurrent.TimeUnit;
+
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import net.sf.json.JSONArray;
@@ -39,6 +41,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         this.host = host;
         this.key = key;
         this.logzioSender = factory == null ? new LogzioSender(key, host) : factory;
+        this.logzioSender.start();
     }
 
     @Override
@@ -47,12 +50,8 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         JSONArray logMessages = jsonData.getJSONArray("message");
         for (Object logMsg : logMessages) {
             JSONObject logLine = createLogLine(jsonData, logMsg.toString());
-            System.out.print("add: " + counter + "\n"); //todo delete
-            this.counter++;//todo delete
             this.logzioSender.add(logLine);
         }
-        System.out.print("flush\n"); //todo delete
-        this.logzioSender.flush();
     }
 
     protected JSONObject createLogLine(JSONObject jsonData, String logMsg) {
@@ -96,6 +95,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
     public class LogzioSender{
         private static final int MAX_SIZE_IN_BYTES = 3 * 1024 * 1024;  // 3 MB
+        private static final int DRAIN_DELAY = 2;  // 2 sec
         static final int INITIAL_WAIT_BEFORE_RETRY_MS = 2000;
         static final int MAX_RETRIES_ATTEMPTS = 3;
         private static final int CONNECT_TIMEOUT = 10*1000;
@@ -106,7 +106,9 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         private final Logger logger;
         private URL logzioListenerUrl;
         private HttpURLConnection conn;
-        private ByteArrayOutputStream logLines;
+        private ConcurrentLinkedQueue<byte[]> logsQueue;
+        private final AtomicBoolean drainRunning = new AtomicBoolean(false);
+        private ScheduledExecutorService tasksExecutor;
 
         LogzioSender(String logzioToken, String logzioUrl){
             this.logzioToken = logzioToken;
@@ -114,38 +116,81 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
                 logzioUrl = DEFAULT_URL;
             this.logzioUrl = logzioUrl;
             this.logger = Logger.getLogger("LogzioSender");
-            this.logLines = new ByteArrayOutputStream();
+            this.logsQueue = new ConcurrentLinkedQueue<>();
             try {
                 logzioListenerUrl = new URL(this.logzioUrl + "/?token=" + this.logzioToken + "&type=" + TYPE);
             } catch (MalformedURLException e) {
-                logger.severe("[LogzioSender] Can't connect to Logzio: " +e.getMessage());
+                logger.severe("[LogzioSender] Can't connect to Logzio: " + e.getMessage());
             }
-            logger.info("[LogzioSender] Created new LogzioSender class");
+            this.tasksExecutor = Executors.newSingleThreadScheduledExecutor();
+            logger.info("[LogzioSender] Created new LogzioSender class"); //todo delete
         }
 
-        private void reset(){
-            this.logLines.reset();
-        }
-
-        void flush(){
-            if (logLines.size() != 0){
-                this.sendToLogzio();
-                this.reset();
-            }
+        public void start(){
+            this.tasksExecutor.scheduleWithFixedDelay(this::drainQueueAndSend, 0, DRAIN_DELAY, TimeUnit.SECONDS);
         }
 
         void add(JSONObject logLine){
             try {
-                logLines.write((logLine.toString() + "\n").getBytes("utf-8"));
-                if (logLines.size() >= MAX_SIZE_IN_BYTES){
-                    this.sendToLogzio();
-                    this.reset();
-                }
+                //todo - handle big in memeory size since no log is shipped.
+                logsQueue.add((logLine.toString() + "\n").getBytes("utf-8"));
             }catch (IOException e){
                 this.logger.severe("[LogzioSender] Something went wrong. Can't add " + logLine.toString() + ": " + e.getMessage());
             }
         }
 
+        public void drainQueueAndSend() {
+            try {
+                if (drainRunning.get()) {
+                    this.logger.info("Drain is running so we won't run another one in parallel");
+                    return;
+                } else {
+                    drainRunning.set(true);
+                }
+                drainQueue();
+            } catch (Exception e) {
+                // We cant throw anything out, or the task will stop, so just swallow all
+                this.logger.severe("Uncaught error from Logz.io sender " + e);
+            } finally {
+                drainRunning.set(false);
+            }
+        }
+
+        private void drainQueue() {
+            if (!logsQueue.isEmpty()) {
+                while (!logsQueue.isEmpty()) {
+                    try {
+                        sendToLogzio();
+                    } catch (RuntimeException e) {
+                        break;
+                    }
+                    if (Thread.interrupted()) {
+                        this.logger.warning("Stopping drainQueue to thread being interrupted");
+                        break;
+                    }
+                }
+            }
+        }
+
+        private ByteArrayOutputStream dequeueUpToMaxBatchSize(){
+            ByteArrayOutputStream logLines = new ByteArrayOutputStream();
+            int totalSize = 0;
+            while (!logsQueue.isEmpty()) {
+                byte[] message  = logsQueue.poll();
+                if (message != null && message.length > 0) {
+                    try {
+                        logLines.write(message);
+                        totalSize += message.length;
+                        if (totalSize >= MAX_SIZE_IN_BYTES) {
+                            break;
+                        }
+                    }catch (IOException e){
+                        this.logger.severe("[LogzioSender] Something went wrong. Can't add " + message.toString() + " : " + e.getMessage());
+                    }
+                }
+            }
+            return logLines;
+        }
         private boolean shouldRetry(int statusCode) {
             boolean shouldRetry = true;
             switch (statusCode) {
@@ -162,6 +207,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
             logger.info("sendToLogzio\n"); //todo delete
             try {
                 int currentRetrySleep = INITIAL_WAIT_BEFORE_RETRY_MS;
+                ByteArrayOutputStream logLines = dequeueUpToMaxBatchSize();
                 for (int currTry = 1; currTry <= MAX_RETRIES_ATTEMPTS; currTry++) {
                     boolean shouldRetry = true;
                     int responseCode;
@@ -170,13 +216,13 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
                     try {
                         conn = (HttpURLConnection) logzioListenerUrl.openConnection();
                         conn.setRequestMethod("POST");
-                        conn.setRequestProperty("Content-length", String.valueOf(this.logLines.size()));
+                        conn.setRequestProperty("Content-length", String.valueOf(logLines.size()));
                         conn.setRequestProperty("Content-Type", "text/plain");
                         conn.setReadTimeout(SOCKET_TIMEOUT);
                         conn.setConnectTimeout(CONNECT_TIMEOUT);
                         conn.setDoOutput(true);
                         conn.setDoInput(true);
-                        conn.getOutputStream().write(this.logLines.toByteArray());
+                        conn.getOutputStream().write(logLines.toByteArray());
 
                         responseCode = conn.getResponseCode();
                         responseMessage = conn.getResponseMessage();
@@ -206,6 +252,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
                     } catch (IOException e) {
                         savedException = e;
                         logger.warning("[LogzioSender] Got IO exception - " + e.getMessage());
+                        return;
                     }
                     if (!shouldRetry) {
                         logger.info("[LogzioSender] Successfully sent bulk to logz.io, size: " + logLines.size());
@@ -215,8 +262,8 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
                             if (savedException != null) {
                                 logger.severe("[LogzioSender] Got IO exception on the last bulk try to logz.io " + savedException.getMessage());
                             }
-                            // Giving up, something is broken on Logz.io side, we will try again later
-                            return;
+                            // Giving up
+                            throw new RuntimeException("Got HTTP " + responseCode + " code from logz.io, with message: " + responseMessage);
                         }
                         logger.info("[LogzioSender] Could not send log to logz.io, retry (" + currTry + "/" + MAX_RETRIES_ATTEMPTS + ")");
                         logger.info("[LogzioSender] Sleeping for " + currentRetrySleep + " ms and will try again.");
