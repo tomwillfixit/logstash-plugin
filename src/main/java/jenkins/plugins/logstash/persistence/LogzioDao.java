@@ -2,6 +2,7 @@ package jenkins.plugins.logstash.persistence;
 
 import com.github.wnameless.json.flattener.JsonFlattener;
 import com.google.common.io.Files;
+import hudson.FilePath;
 import hudson.model.Executor;
 
 import io.logz.sender.LogzioSender;
@@ -12,6 +13,8 @@ import io.logz.sender.exceptions.LogzioParameterErrorException;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import jenkins.plugins.logstash.LogstashConfiguration;
 import net.sf.json.JSONArray;
@@ -49,12 +52,17 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         // create file for sender queue
         File fp;
         // for tests
-        if (Executor.currentExecutor() != null){
+        if (Executor.currentExecutor() != null) {
             hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
+            System.out.print(workspace);
             fp = new File(workspace + "/logzio_jenkins");
-        }else{
+        } else {
             fp = Files.createTempDir();
         }
+
+        Logger.getLogger("hudson.plugins.git.GitStatus").setLevel(Level.SEVERE);
+        Logger.getLogger("hudson.security.csrf.CrumbFilter").setLevel(Level.SEVERE);
+        Logger.getLogger("hudson.security.csrf.CrumbFilter").log(Level.SEVERE, "file path: " + fp);
         try{
             this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, DRAIN_TIMEOUT,
                     FS_PERCENT_THRESHOLD, fp, host, SOCKET_TIMEOUT,
