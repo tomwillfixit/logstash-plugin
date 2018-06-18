@@ -2,7 +2,6 @@ package jenkins.plugins.logstash.persistence;
 
 import com.github.wnameless.json.flattener.JsonFlattener;
 import com.google.common.io.Files;
-import hudson.FilePath;
 import hudson.model.Executor;
 
 import io.logz.sender.LogzioSender;
@@ -16,6 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import jenkins.model.Jenkins;
 import jenkins.plugins.logstash.LogstashConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
@@ -51,13 +51,23 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
         // create file for sender queue
         File fp;
-        // for tests
-        if (Executor.currentExecutor() != null) {
-            hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
-            System.out.print(workspace);
-            fp = new File(workspace + "/logzio_jenkins");
-        } else {
+//        if (Executor.currentExecutor() != null) {
+//            File jenkinsHome = Jenkins.getInstance().getRootDir();
+//            hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
+//            System.out.print(workspace);
+//            fp = new File(jenkinsHome + "/logzio_plugin");
+//            fp.mkdirs();
+//        } else {
+//            fp = Files.createTempDir();
+//        }
+        Jenkins jenkins = Jenkins.getInstanceOrNull();
+        if (jenkins == null){
+            // for testing (mvn package)
             fp = Files.createTempDir();
+        }else{
+            fp = new File(jenkins.getRootDir() + "/logs/logzio_plugin");
+            fp.mkdirs();
+            fp.setWritable(true);
         }
 
         Logger.getLogger("hudson.plugins.git.GitStatus").setLevel(Level.SEVERE);
