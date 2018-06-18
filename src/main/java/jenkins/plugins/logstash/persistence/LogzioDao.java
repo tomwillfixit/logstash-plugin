@@ -29,8 +29,8 @@ import net.sf.json.JSONObject;
 public class LogzioDao extends AbstractLogstashIndexerDao {
     private static final int CONNECT_TIMEOUT = 10*1000;
     private static final int CORE_POOL_SIZE = 2;
-    private static final int DRAIN_TIMEOUT = 2;
-    private static final int FS_PERCENT_THRESHOLD = 98;
+    private static final int DRAIN_TIMEOUT = 1;
+    private static final int FS_PERCENT_THRESHOLD = 99;
     private static final int GC_PERSISTED_QUEUE_FILE_INTERVAL_SECOND = 30;
     private static final int SOCKET_TIMEOUT = 10*1000;
     private static final String TYPE = "jenkins_plugin";
