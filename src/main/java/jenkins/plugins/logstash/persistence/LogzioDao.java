@@ -62,6 +62,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 //        } else {
 //            fp = Files.createTempDir();
 //        }
+        this.logzioLogger.info("key is: " + key);
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         if (jenkins == null){
             // for testing (mvn package)
@@ -70,15 +71,15 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         }else{
             fp = new File(jenkins.getRootDir() + "/logs/logzio_plugin");
             boolean retMkdirs = fp.mkdirs();
-            boolean retSetWriteable =fp.setWritable(true);
+            boolean retSetWriteable = fp.setWritable(true);
             this.logzioLogger.info("mkdir response is: " + retMkdirs + " setWritable response is: " + retSetWriteable);
         }
 
         this.logzioLogger.info("Queue file path is: " + fp);
         try{
             this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, DRAIN_TIMEOUT,
-                    FS_PERCENT_THRESHOLD, fp, host, SOCKET_TIMEOUT, CONNECT_TIMEOUT,false, this.logzioLogger,
-                    Executors.newScheduledThreadPool(CORE_POOL_SIZE),GC_PERSISTED_QUEUE_FILE_INTERVAL_SECOND) : factory;
+                    FS_PERCENT_THRESHOLD, fp, host, SOCKET_TIMEOUT, CONNECT_TIMEOUT,true, this.logzioLogger,
+                    Executors.newScheduledThreadPool(CORE_POOL_SIZE),GC_PERSISTED_QUEUE_FILE_INTERVAL_SECOND) : factory; //todo - chnage debug to false
             this.logzioSender.start();
         }catch (LogzioParameterErrorException e){
             throw new IllegalArgumentException(e.getMessage());
@@ -87,10 +88,12 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
     @Override
     public void push(String data) {
+        this.logzioLogger.info("push");
         JSONObject jsonData = JSONObject.fromObject(data);
         JSONArray logMessages = jsonData.getJSONArray("message");
         for (Object logMsg : logMessages) {
             JsonObject logLine = createLogLine(jsonData, logMsg.toString());
+            this.logzioLogger.info("send");
             this.logzioSender.send(logLine);
         }
     }
@@ -107,6 +110,7 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
     @Override
     public JSONObject buildPayload(BuildData buildData, String jenkinsUrl, List<String> logLines) {
+        this.logzioLogger.info("buildPayload");
         JSONObject payload = new JSONObject();
         payload.put("message", logLines);
         payload.put("source", "jenkins");
