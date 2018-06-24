@@ -2,7 +2,6 @@ package jenkins.plugins.logstash.persistence;
 
 import com.github.wnameless.json.flattener.JsonFlattener;
 import com.google.common.io.Files;
-import hudson.model.Executor;
 
 import io.logz.sender.LogzioSender;
 import io.logz.sender.SenderStatusReporter;
@@ -53,16 +52,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
         // create file for sender queue
         File fp;
-//        if (Executor.currentExecutor() != null) {
-//            File jenkinsHome = Jenkins.getInstance().getRootDir();
-//            hudson.FilePath workspace = Executor.currentExecutor().getCurrentWorkspace();
-//            System.out.print(workspace);
-//            fp = new File(jenkinsHome + "/logzio_plugin");
-//            fp.mkdirs();
-//        } else {
-//            fp = Files.createTempDir();
-//        }
-        this.logzioLogger.info("key is: " + key);
         Jenkins jenkins = Jenkins.getInstanceOrNull();
         if (jenkins == null){
             // for testing (mvn package)
@@ -88,12 +77,10 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
     @Override
     public void push(String data) {
-        this.logzioLogger.info("push");
         JSONObject jsonData = JSONObject.fromObject(data);
         JSONArray logMessages = jsonData.getJSONArray("message");
         for (Object logMsg : logMessages) {
             JsonObject logLine = createLogLine(jsonData, logMsg.toString());
-            this.logzioLogger.info("send");
             this.logzioSender.send(logLine);
         }
     }
@@ -110,7 +97,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
 
     @Override
     public JSONObject buildPayload(BuildData buildData, String jenkinsUrl, List<String> logLines) {
-        this.logzioLogger.info("buildPayload");
         JSONObject payload = new JSONObject();
         payload.put("message", logLines);
         payload.put("source", "jenkins");
@@ -138,9 +124,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
     public String getType(){ return TYPE; }
 
     public class LogzioDaoLogger implements SenderStatusReporter {
-
-        private final OutputStream logStream = System.out;
-
         private void pringLogMessage(String msg) {
             msg = msg + "\n";
             Logger.getLogger("hudson.plugins.git.GitStatus").setLevel(Level.SEVERE);
