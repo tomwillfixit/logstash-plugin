@@ -38,6 +38,7 @@ public class LogstashConfiguration extends GlobalConfiguration
   private static final FastDateFormat LEGACY_FORMATTER = FastDateFormat.getInstance("yyyy-MM-dd'T'HH:mm:ssZ");
 
   private LogstashIndexer<?> logstashIndexer;
+  private Boolean enabled;
   private boolean dataMigrated = false;
   private boolean enableGlobally = false;
   private boolean milliSecondTimestamps = true;
@@ -46,7 +47,28 @@ public class LogstashConfiguration extends GlobalConfiguration
   public LogstashConfiguration()
   {
     load();
+    if (enabled == null)
+    {
+      if (logstashIndexer == null)
+      {
+        enabled = false;
+      }
+      else
+      {
+        enabled = true;
+      }
+    }
     activeIndexer = logstashIndexer;
+  }
+
+  public boolean isEnabled()
+  {
+    return enabled == null ? false: enabled;
+  }
+
+  public void setEnabled(boolean enabled)
+  {
+    this.enabled = enabled;
   }
 
   public boolean isEnableGlobally()
@@ -135,6 +157,7 @@ public class LogstashConfiguration extends GlobalConfiguration
             redis.setKey(descriptor.getKey());
             redis.setPassword(descriptor.getPassword());
             logstashIndexer = redis;
+            enabled = true;
             break;
           case ELASTICSEARCH:
             LOGGER.log(Level.INFO, "Migrating logstash configuration for Elastic Search");
@@ -149,9 +172,11 @@ public class LogstashConfiguration extends GlobalConfiguration
               es.setUsername(descriptor.getUsername());
               es.setPassword(descriptor.getPassword());
               logstashIndexer = es;
+              enabled = true;
             }
             catch (URISyntaxException e)
             {
+              enabled = false;
               LOGGER.log(Level.INFO, "Migrating logstash configuration for Elastic Search failed: " + e.toString());
             }
             break;
@@ -164,6 +189,7 @@ public class LogstashConfiguration extends GlobalConfiguration
             rabbitMq.setUsername(descriptor.getUsername());
             rabbitMq.setPassword(descriptor.getPassword());
             logstashIndexer = rabbitMq;
+            enabled = true;
             break;
           case SYSLOG:
             LOGGER.log(Level.INFO, "Migrating logstash configuration for  SYSLOG");
@@ -184,6 +210,7 @@ public class LogstashConfiguration extends GlobalConfiguration
                 break;
             }
             logstashIndexer = syslog;
+            enabled = true;
             break;
           case LOGZIO:
             LOGGER.log(Level.INFO, "Migrating logstash configuration for Logz.io");
@@ -194,6 +221,7 @@ public class LogstashConfiguration extends GlobalConfiguration
             break;
           default:
             LOGGER.log(Level.INFO, "unknown logstash Indexer type: " + type);
+            enabled = false;
             break;
         }
         milliSecondTimestamps = false;
