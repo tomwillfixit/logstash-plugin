@@ -62,7 +62,6 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
             fp.setWritable(true);
         }
 
-        this.logzioLogger.info("Queue file path is: " + fp);//todo delete
         try{
             this.logzioSender = factory == null ? LogzioSender.getOrCreateSenderByType(key, TYPE, DRAIN_TIMEOUT,
                     FS_PERCENT_THRESHOLD, fp, host, SOCKET_TIMEOUT, CONNECT_TIMEOUT,false, this.logzioLogger,
