@@ -86,12 +86,9 @@ public class LogzioDao extends AbstractLogstashIndexerDao {
         JsonObject logLine = new JsonObject();
         logLine.addProperty("message", logMsg);
         logLine.addProperty("@timestamp", LogstashConfiguration.getInstance().getDateFormatter().format(Calendar.getInstance().getTime()));
-        for(Object key : jsonData.keySet()){
-            String keyStr = (String) key;
-            if (!keyStr.equals("message")){
-                logLine.addProperty(key.toString(), jsonData.getString(key.toString()));
-            }
-        }
+        jsonData.keySet().stream()
+        .filter(key -> !(key.equals("message")))
+        .forEach(key -> logLine.addProperty(key.toString(), jsonData.getString(key.toString())));
         return logLine;
     }
 
