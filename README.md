@@ -14,7 +14,15 @@ Install
 
 * Generate the `hpi` file with the command: `mvn package`
 
+If you don't have Maven installed you can build the plugin using a Docker container.
+
+Just clone this repository and run :
+```
+docker run -it --rm --name logstash-plugin -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven maven:3.3-jdk-8 mvn package
+```
+
 * Put the `hpi` file in the directory `$JENKINS_HOME/plugins`
+
 * Restart jenkins
 
 Configure
